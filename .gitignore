@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /target
 /classes
 /checkouts
@@ -7,3 +8,16 @@ pom.xml.asc
 *.class
 /.lein-*
 /.nrepl-port
+=======
+pom.xml
+pom.xml.asc
+*jar
+/lib/
+/classes/
+/target/
+/checkouts/
+.lein-deps-sum
+.lein-repl-history
+.lein-plugins/
+.lein-failures
+>>>>>>> 9b9f6e89b0b2e64ffb13d9a97b7f101904ae50a5
