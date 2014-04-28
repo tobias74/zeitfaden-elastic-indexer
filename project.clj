@@ -7,7 +7,9 @@
 		 [com.taoensso/carmine "2.6.0"]
 		 [org.clojure/data.json "0.2.4"]
 		 [clojurewerkz/elastisch "2.0.0-beta5"]
-		 [clj-http "0.9.1"]]
+		 [clj-http "0.9.1"]
+		 [com.novemberain/monger "1.7.0"]
+	        ]
   :main ^:skip-aot zeitfaden-elastic-indexer.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
