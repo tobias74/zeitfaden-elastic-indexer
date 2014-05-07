@@ -38,6 +38,12 @@
                                         {:shardId "handmade_shard_number_two"}]})
   )
 
+
+(defn get-next-100-scheduled-stations []
+  (take 100 (mc/find-maps "indexer-schedule" {$or [{:shardId "handmade_shard_number_one"}
+                                                   {:shardId "handmade_shard_number_two"}]}))
+  )
+
 (defn delete-scheduled-station [mongo-id]
   (mc/remove-by-id "indexer-schedule" mongo-id))
 
@@ -131,37 +137,67 @@
        (json/write-str indexing-command)))
 
 
-(defn mongo-bulk-test []
+(defn build-query-string [station-ids]
+  (clojure.string/join "&" (map #(str "stationIds[]=" %) station-ids)))
+
+
+(defn read-stations-from-server [station-ids]
+  (let [url (str "http://test.db-shard-one.zeitfaden.com/station/getByIds/stationId/?" (build-query-string station-ids))
+        station-data (:body (http-client/get url {:decompress-body false}))
+        ]
+    (println url)
+    (println "hallo")
+    (json/read-str station-data)
+    ))
+
+
+(defn digest-next-100-scheduled-stations-data []
+  (let [data-hashes (get-next-100-scheduled-stations)]
+    (doseq [x data-hashes]
+      (let [station-id (:stationId x)
+            mongo-id (:_id x)]
+        (println station-id)
+        (delete-scheduled-station mongo-id)
+        
+        )
+      )
+
+    (let [station-ids (map #(:stationId %) data-hashes)]
+      (println station-ids)
+      )
+
+      
+      
+
+      
+      
+     
+      
+      ;(let [station-data (read-station-from-server station-id)] (let [enriched-data (enrich-station-data station-data)] (identity enriched-data)))
+
+      ))
+
+
+
+
+(defn digest-next-scheduled-station-data []
   (let [mongo-station-object (get-next-scheduled-station)]
     (let [station-id (:stationId (from-db-object mongo-station-object  true))
           mongo-id (:_id (from-db-object mongo-station-object true))]
-      (println "deleting from mongo")
+      
       (delete-scheduled-station mongo-id)
+     
+      (let [station-data (read-station-from-server station-id)]
+        (let [enriched-data (enrich-station-data station-data)]
+          (identity enriched-data))))))
 
-      (let [conn (esr/connect! "http://elastic-search.zeitfaden.com:9200")]
-        
-        (let [station-data (read-station-from-server station-id)]
-          (println "now making bulk-index")
-          (let [bulk-content (eb/bulk-index (enrich-station-data station-data))]
-            (println "done making the document")
-            
-            (println "now trying to bulk index")
-            (let [generated-stuff (eb/bulk-index [{:_index "clojure-stations" :_type "station" :title "sometitle"} {:_index "clojure-stations" :_type "station" :title "some more title"}] ) ]
-              (println "now the thing")
-              (println generated-stuff)
-              (println "now the json thing")
-              (println (map json/write-str generated-stuff))
-              (println "that was the thing")
-              (eb/bulk generated-stuff :refresh true)))
-          
-          
-          
-          ))
-      
-      (println "not writing to elastic")
-      
-      (println "done es"))))
 
+
+(defn mongo-bulk-test []
+  (let [conn (esr/connect! "http://elastic-search.zeitfaden.com:9200")]
+    (let [stations (repeatedly 5 digest-next-scheduled-station-data)]
+      (let [generated-stuff (eb/bulk-index stations ) ]
+        (eb/bulk-with-index-and-type "clojure-stations" "station" generated-stuff :refresh true)))))
 
 
 (defn mainsome []
