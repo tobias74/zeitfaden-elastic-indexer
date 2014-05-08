@@ -142,7 +142,7 @@
 
 
 (defn read-stations-from-server [station-ids]
-  (let [url (str "http://test.db-shard-one.zeitfaden.com/station/getByIds/stationId/?" (build-query-string station-ids))
+  (let [url (str "http://test.zeitfaden.com/station/getByIds/?" (build-query-string station-ids))
         station-data (:body (http-client/get url {:decompress-body false}))
         ]
     (println url)
@@ -164,18 +164,13 @@
 
     (let [station-ids (map #(:stationId %) data-hashes)]
       (println station-ids)
+      (let [stations (map enrich-station-data (read-stations-from-server station-ids))]
+        (println stations)
+        (let [generated-stuff (eb/bulk-index stations ) ]
+          (eb/bulk-with-index-and-type "clojure-stations" "station" generated-stuff :refresh true))
+        )
       )
-
-      
-      
-
-      
-      
-     
-      
-      ;(let [station-data (read-station-from-server station-id)] (let [enriched-data (enrich-station-data station-data)] (identity enriched-data)))
-
-      ))
+    ))
 
 
 
@@ -204,7 +199,9 @@
   (connect-to-mongo)
   (forever (mongo-test)))
 
-
+(defn bulksome []
+  (connect-to-mongo)
+  (forever (digest-next-100-scheduled-stations-data)))
 
   
 
