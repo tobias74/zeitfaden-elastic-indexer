@@ -9,6 +9,7 @@
 		 [clojurewerkz/elastisch "2.0.0-beta5"]
 		 [clj-http "0.9.1"]
 		 [com.novemberain/monger "1.7.0"]
+		 [org.clojure/tools.cli "0.3.1"]
 	        ]
   :main ^:skip-aot zeitfaden-elastic-indexer.core
   :target-path "target/%s"
