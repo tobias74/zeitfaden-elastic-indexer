@@ -13,6 +13,11 @@
     :default "test"
     
     ]
+   ["-r" "--shard WORKERSHARD" "Worker Shard"
+    :default "handmade_shard_number_one"
+    
+    ]
+
    ["-w" "--worker WORKERNAME" "Worker Name"
     :default "worker-one"
 
@@ -47,6 +52,7 @@
       (println my-options)
       (bulksome
        (:target my-options)
+       (:shard my-options)
        (:worker my-options)
        (:loops my-options)
        (:size my-options)))

@@ -24,7 +24,7 @@
 
 (def system-config (atom nil))
 (def worker-name (atom nil))
-
+(def worker-shard (atom nil))
 
 
 
@@ -43,7 +43,6 @@
   {:mongo-host "services.zeitfaden.com"
    :mongo-database "zeitfaden_test"
    :mongo-scheduler-collection "indexer-schedule"
-   :shard-id "handmade_shard_number_one"
    :station-index-name "clojure-stations-test"
    :zf-api-url "test.zeitfaden.com"
    })
@@ -53,7 +52,6 @@
   {:mongo-host "services.zeitfaden.com"
    :mongo-database "zeitfaden_live"
    :mongo-scheduler-collection "indexer-schedule"
-   :shard-id "handmade_shard_number_one"
    :station-index-name "clojure-stations-live"
    :zf-api-url "livetest.zeitfaden.com"
    })
@@ -68,8 +66,8 @@
   (take station-counter
         (mc/find-maps
          (:mongo-scheduler-collection @system-config)
-         {$or [{:shardId (:shard-id @system-config)}
-               {:loadBalanceWorkerId @worker-name}]}))
+         {$and [{:shardId @worker-shard}
+               {:loadBalanceWorker @worker-name}]}))
   )
 
 
@@ -101,7 +99,10 @@
 
 
 (defn enrich-station-data [station-data]
-  (assoc station-data :start_location {:lat (read-string (station-data "startLatitude")) :lon (read-string (station-data "startLongitude"))} :end_location {:lat (read-string (station-data "endLatitude")) :lon (read-string (station-data "endLongitude"))}))
+  (assoc station-data
+    :_id (station-data "id")
+    :start_location {:lat (read-string (station-data "startLatitude")) :lon (read-string (station-data "startLongitude"))}
+    :end_location {:lat (read-string (station-data "endLatitude")) :lon (read-string (station-data "endLongitude"))}))
 
   
 
@@ -138,13 +139,23 @@
 
 
 
-(defn bulksome [target my-worker-name total-loops batch-size]
+(defn bulksome [target my-worker-shard my-worker-name total-loops batch-size]
   (if (= target "live")
     (reset! system-config live-system-config)
     (reset! system-config test-system-config))
   (reset! worker-name my-worker-name)
+  (reset! worker-shard my-worker-shard)
   (connect-to-mongo)
   (connect-to-elastic)
+
+  (try 
+    (create-station-index)
+    (catch Exception e (println "Creating Index failed, possibly it already exists?")))
+  
+  (try 
+    (create-station-mapping)
+    (catch Exception e (println "Creating mapping failed?")))
+
   (println "inside th ebulkmsome" target my-worker-name total-loops batch-size)
   (dorun total-loops (repeatedly #(digest-next-scheduled-stations-data batch-size)))
   (println "done"))
