@@ -91,8 +91,9 @@
   (connect-to-elastic)
   (let [mapping-types {"station" {:properties {:description {:type "string" :store "yes"}
                                                :title {:type "string" :store "yes"}
-                                               :start_location {:type "geo_point"}
-                                               :end_location {:type "geo_point"}}}}]
+                                               :startDateWithId {:type "string" :index "not_analyzed"}
+                                               :startLocation {:type "geo_point"}
+                                               :endLocation {:type "geo_point"}}}}]
    
     (esi/update-mapping (:station-index-name @system-config) "station" :mapping mapping-types)))
 
@@ -101,8 +102,9 @@
 (defn enrich-station-data [station-data]
   (assoc station-data
     :_id (station-data "id")
-    :start_location {:lat (read-string (station-data "startLatitude")) :lon (read-string (station-data "startLongitude"))}
-    :end_location {:lat (read-string (station-data "endLatitude")) :lon (read-string (station-data "endLongitude"))}))
+    :startDateWithId (str (station-data "startDate") "_" (station-data "id"))
+    :startLocation {:lat (read-string (station-data "startLatitude")) :lon (read-string (station-data "startLongitude"))}
+    :endLocation {:lat (read-string (station-data "endLatitude")) :lon (read-string (station-data "endLongitude"))}))
 
   
 
@@ -127,7 +129,6 @@
     (doseq [x data-hashes]
       (let [station-id (:stationId x)
             mongo-id (:_id x)]
-        (println station-id)
         (delete-scheduled-station mongo-id)))
 
     (let [station-ids (map #(:stationId %) data-hashes)]
