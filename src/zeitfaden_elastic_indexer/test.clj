@@ -83,35 +83,46 @@
 
 
 (defn create-station-index []
-  (connect-to-elastic)
   (esi/create (:station-index-name @system-config) :settings {"number_of_shards" 1}))
 
+(def station-mapping {:description {:type "string" :store "yes"}
+                      :title {:type "string" :store "yes"}
+                      :startDateWithId {:type "string" :index "not_analyzed"}
+                      :startLocation {:type "geo_point"}
+                      :endLocation {:type "geo_point"}})
 
 (defn create-station-mapping []
-  (connect-to-elastic)
-  (let [mapping-types {"station" {:properties {:description {:type "string" :store "yes"}
-                                               :title {:type "string" :store "yes"}
-                                               :startDateWithId {:type "string" :index "not_analyzed"}
-                                               :startLocation {:type "geo_point"}
-                                               :endLocation {:type "geo_point"}}}}]
-   
+  (let [mapping-types {"station" {:_parent {:type "user"}
+                                  :properties station-mapping}}]
     (esi/update-mapping (:station-index-name @system-config) "station" :mapping mapping-types)))
+
+
+(defn create-anonymous-station-mapping []
+  (let [mapping-types {"station-anonymous" {:properties station-mapping}}]
+    (esi/update-mapping (:station-index-name @system-config) "station-anonymous" :mapping mapping-types)))
+
+
+(defn create-user-mapping []
+  (let [mapping-types {"user" {:properties {:nickname {:type "string" :store "yes"}
+                                               :userId {:type "string" :store "yes"}}}}]
+    (esi/update-mapping (:station-index-name @system-config) "user" :mapping mapping-types)))
+
 
 
 
 (defn enrich-station-data [station-data]
-  (assoc station-data
-    :_id (station-data "id")
-    :startDateWithId (str (station-data "startDate") "_" (station-data "id"))
-    :startLocation {:lat (read-string (station-data "startLatitude")) :lon (read-string (station-data "startLongitude"))}
-    :endLocation {:lat (read-string (station-data "endLatitude")) :lon (read-string (station-data "endLongitude"))}))
+  (let [intermediate-data 
+        (assoc station-data
+          :_id (station-data "id")
+          :startDateWithId (str (station-data "startDate") "_" (station-data "id"))
+          :startLocation {:lat (read-string (station-data "startLatitude")) :lon (read-string (station-data "startLongitude"))}
+          :endLocation {:lat (read-string (station-data "endLatitude")) :lon (read-string (station-data "endLongitude"))})]
+    (if (not= (station-data "userId") "")
+      (assoc intermediate-data :_parent (station-data "userId") :_type "station")
+      (assoc intermediate-data :_type "station-anonymous"))))
 
   
 
-
-(defn get-bulk-indexing-command [station-id]
-  (let [indexing-command {"index" {"_index" (:station-index-name @system-config) "_type" "station" "_id" (str station-id)}}]
-       (json/write-str indexing-command)))
 
 
 (defn build-query-string [station-ids]
@@ -134,7 +145,7 @@
     (let [station-ids (map #(:stationId %) data-hashes)]
       (let [stations (map enrich-station-data (read-stations-from-server station-ids))]
         (let [generated-stuff (eb/bulk-index stations ) ]
-          (eb/bulk-with-index-and-type (:station-index-name @system-config) "station" generated-stuff :refresh true))))))
+          (eb/bulk-with-index (:station-index-name @system-config) generated-stuff :refresh true))))))
 
 
 
@@ -155,6 +166,14 @@
   
   (try 
     (create-station-mapping)
+    (catch Exception e (println "Creating mapping failed?")))
+
+  (try 
+    (create-anonymous-station-mapping)
+    (catch Exception e (println "Creating mapping failed?")))
+
+  (try 
+    (create-user-mapping)
     (catch Exception e (println "Creating mapping failed?")))
 
   (println "inside th ebulkmsome" target my-worker-name total-loops batch-size)
