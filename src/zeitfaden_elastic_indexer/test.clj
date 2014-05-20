@@ -68,8 +68,11 @@
   (take station-counter
         (mc/find-maps
          (:mongo-scheduler-collection @system-config)
-         {$and [{:shardId @worker-shard}
-               {:loadBalanceWorker @worker-name}]}))
+
+        ; {$and [{:shardId @worker-shard} {:loadBalanceWorker @worker-name}]}
+
+
+         ))
   )
 
 
