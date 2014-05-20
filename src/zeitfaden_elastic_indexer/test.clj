@@ -44,6 +44,7 @@
    :mongo-database "zeitfaden_test"
    :mongo-scheduler-collection "indexer-schedule"
    :station-index-name "clojure-stations-test"
+   :station-anonymous-index-name "clojure-stations-anonymous-test"
    :zf-api-url "test.zeitfaden.com"
    })
 
@@ -53,6 +54,7 @@
    :mongo-database "zeitfaden_live"
    :mongo-scheduler-collection "indexer-schedule"
    :station-index-name "clojure-stations-live"
+   :station-anonymous-index-name "clojure-stations-anonymous-live"
    :zf-api-url "livetest.zeitfaden.com"
    })
 
@@ -83,7 +85,10 @@
 
 
 (defn create-station-index []
-  (esi/create (:station-index-name @system-config) :settings {"number_of_shards" 1}))
+  (esi/create (:station-index-name @system-config) :settings {"number_of_shards" 3}))
+
+(defn create-station-anonymous-index []
+  (esi/create (:station-anonymous-index-name @system-config) :settings {"number_of_shards" 3}))
 
 (def station-mapping {:description {:type "string" :store "yes"}
                       :title {:type "string" :store "yes"}
@@ -97,9 +102,9 @@
     (esi/update-mapping (:station-index-name @system-config) "station" :mapping mapping-types)))
 
 
-(defn create-anonymous-station-mapping []
-  (let [mapping-types {"station-anonymous" {:properties station-mapping}}]
-    (esi/update-mapping (:station-index-name @system-config) "station-anonymous" :mapping mapping-types)))
+(defn create-station-anonymous-mapping []
+  (let [mapping-types {"station" {:properties station-mapping}}]
+    (esi/update-mapping (:station-anonymous-index-name @system-config) "station" :mapping mapping-types)))
 
 
 (defn create-user-mapping []
@@ -117,16 +122,13 @@
           :startDateWithId (str (station-data "startDate") "_" (station-data "id"))
           :startLocation {:lat (read-string (station-data "startLatitude")) :lon (read-string (station-data "startLongitude"))}
           :endLocation {:lat (read-string (station-data "endLatitude")) :lon (read-string (station-data "endLongitude"))})]
-    (if (not= (station-data "userId") "")
-      (assoc intermediate-data :_parent (station-data "userId") :_type "station")
-      (assoc intermediate-data :_type "station-anonymous"))))
+    
+    (if (or  (clojure.string/blank? (station-data "userId")) (false? (station-data "userId")) (= "false" (station-data "userId")) )
+      (assoc intermediate-data :_index (:station-anonymous-index-name @system-config) :_type "station")   
+      (assoc intermediate-data :_index (:station-index-name @system-config) :_type "station" :_parent (station-data "userId")))
+    ))
 
   
-
-
-
-(defn build-query-string [station-ids]
-  (clojure.string/join "&" (map #(str "stationIds[]=" %) station-ids)))
 
 
 (defn read-stations-from-server [station-ids]
@@ -145,7 +147,7 @@
     (let [station-ids (map #(:stationId %) data-hashes)]
       (let [stations (map enrich-station-data (read-stations-from-server station-ids))]
         (let [generated-stuff (eb/bulk-index stations ) ]
-          (eb/bulk-with-index (:station-index-name @system-config) generated-stuff :refresh true))))))
+          (eb/bulk generated-stuff :refresh true))))))
 
 
 
@@ -163,13 +165,17 @@
   (try 
     (create-station-index)
     (catch Exception e (println "Creating Index failed, possibly it already exists?")))
-  
+
+  (try 
+    (create-station-anonymous-index)
+    (catch Exception e (println "Creating Index failed, possibly it already exists?")))
+
   (try 
     (create-station-mapping)
     (catch Exception e (println "Creating mapping failed?")))
 
   (try 
-    (create-anonymous-station-mapping)
+    (create-station-anonymous-mapping)
     (catch Exception e (println "Creating mapping failed?")))
 
   (try 
