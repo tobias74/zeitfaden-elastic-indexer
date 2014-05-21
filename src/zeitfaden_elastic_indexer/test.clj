@@ -43,6 +43,7 @@
   {:mongo-host "services.zeitfaden.com"
    :mongo-database "zeitfaden_test"
    :mongo-scheduler-collection "indexer-schedule"
+   :mongo-scheduler-user-collection "indexer-schedule-users"
    :station-index-name "clojure-stations-test"
    :station-anonymous-index-name "clojure-stations-anonymous-test"
    :zf-api-url "test.zeitfaden.com"
@@ -53,6 +54,7 @@
   {:mongo-host "services.zeitfaden.com"
    :mongo-database "zeitfaden_live"
    :mongo-scheduler-collection "indexer-schedule"
+   :mongo-scheduler-user-collection "indexer-schedule-users"
    :station-index-name "clojure-stations-live"
    :station-anonymous-index-name "clojure-stations-anonymous-live"
    :zf-api-url "livetest.zeitfaden.com"
@@ -68,17 +70,23 @@
   (take station-counter
         (mc/find-maps
          (:mongo-scheduler-collection @system-config)
-
         ; {$and [{:shardId @worker-shard} {:loadBalanceWorker @worker-name}]}
+         )))
 
-
-         ))
-  )
-
+(defn get-next-scheduled-users [user-counter]
+  (take user-counter
+        (mc/find-maps
+         (:mongo-scheduler-user-collection @system-config)
+        ; {$and [{:shardId @worker-shard} {:loadBalanceWorker @worker-name}]}
+         )))
 
 
 (defn delete-scheduled-station [mongo-id]
   (mc/remove-by-id (:mongo-scheduler-collection @system-config) mongo-id))
+
+
+(defn delete-scheduled-user [mongo-id]
+  (mc/remove-by-id (:mongo-scheduler-user-collection @system-config) mongo-id))
 
 
 
@@ -131,6 +139,11 @@
       (assoc intermediate-data :_index (:station-index-name @system-config) :_type "station" :_parent (station-data "userId")))
     ))
 
+(defn enrich-user-data [user-data]
+  (let [intermediate-data 
+        (assoc user-data
+          :_id (user-data "id"))]
+    (assoc intermediate-data :_index (:station-index-name @system-config) :_type "user" )))
   
 
 
@@ -138,6 +151,13 @@
   (let [url (str "http://" (:zf-api-url @system-config) "/station/getByIds/")
         station-data (:body (http-client/post url {:decompress-body false :form-params {:stationIds (json/write-str station-ids)}}))]
     (json/read-str station-data)))
+
+
+(defn read-users-from-server [user-ids]
+  (let [url (str "http://" (:zf-api-url @system-config) "/user/getByIds/")
+        user-data (:body (http-client/post url {:decompress-body false :form-params {:userIds (json/write-str user-ids)}}))]
+    (json/read-str user-data)))
+
 
 
 (defn digest-next-scheduled-stations-data [station-counter]
@@ -152,6 +172,19 @@
         (let [generated-stuff (eb/bulk-index stations ) ]
           (eb/bulk generated-stuff :refresh true))))))
 
+
+
+(defn digest-next-scheduled-users-data [user-counter]
+  (let [data-hashes (get-next-scheduled-users user-counter)]
+    (doseq [x data-hashes]
+      (let [user-id (:userId x)
+            mongo-id (:_id x)]
+        (delete-scheduled-user mongo-id)))
+
+    (let [user-ids (map #(:userId %) data-hashes)]
+      (let [users (map enrich-user-data (read-users-from-server user-ids))]
+        (let [generated-stuff (eb/bulk-index users ) ]
+          (eb/bulk generated-stuff :refresh true))))))
 
 
 
@@ -186,7 +219,10 @@
     (catch Exception e (println "Creating mapping failed?")))
 
   (println "inside th ebulkmsome" target my-worker-name total-loops batch-size)
+
+  (dorun total-loops (repeatedly #(digest-next-scheduled-users-data batch-size)))
   (dorun total-loops (repeatedly #(digest-next-scheduled-stations-data batch-size)))
+
   (println "done"))
 
   
