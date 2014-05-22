@@ -220,7 +220,11 @@
 
   (println "inside th ebulkmsome" target my-worker-name total-loops batch-size)
 
-  (dorun total-loops (repeatedly #(digest-next-scheduled-users-data batch-size)))
+  (try
+    (dorun total-loops (repeatedly #(digest-next-scheduled-users-data batch-size)))
+    (catch Exception e (println "Caught exception in the user indexing... I wont print it now, maybe look into it on the server?")))
+
+
   (dorun total-loops (repeatedly #(digest-next-scheduled-stations-data batch-size)))
 
   (println "done"))
