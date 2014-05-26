@@ -6,7 +6,7 @@ if ! flock -n 9  ; then
    exit 1
 fi
 
-java -jar ~/zeitfaden-elastic-indexer/target/zeitfaden-elastic-indexer-0.1.0-SNAPSHOT-standalone.jar -vv -t test -s 500 -l 400
+java -jar ~/zeitfaden-elastic-indexer/target/zeitfaden-elastic-indexer-0.1.0-SNAPSHOT-standalone.jar -vv -t test -s 500 -l 5
 
 
 # this now runs under the lock until 9 is closed (it will be closed automatically when the script ends)
