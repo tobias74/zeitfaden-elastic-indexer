@@ -148,13 +148,13 @@
 
 
 (defn read-stations-from-server [station-ids]
-  (let [url (str "http://" (:zf-api-url @system-config) "/station/getByIds/")
+  (let [url (str "http://" (:zf-api-url @system-config) "/station/getByIds/loadBalancedUrls/0/")
         station-data (:body (http-client/post url {:decompress-body false :form-params {:stationIds (json/write-str station-ids)}}))]
     (json/read-str station-data)))
 
 
 (defn read-users-from-server [user-ids]
-  (let [url (str "http://" (:zf-api-url @system-config) "/user/getByIds/")
+  (let [url (str "http://" (:zf-api-url @system-config) "/user/getByIds/loadBalancedUrls/0/")
         user-data (:body (http-client/post url {:decompress-body false :form-params {:userIds (json/write-str user-ids)}}))]
     (json/read-str user-data)))
 
