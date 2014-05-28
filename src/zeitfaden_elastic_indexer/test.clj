@@ -104,6 +104,7 @@
 (def station-mapping {:description {:type "string" :store "yes"}
                       :title {:type "string" :store "yes"}
                       :startDateWithId {:type "string" :index "not_analyzed"}
+                      :fileType {:type "string" :index "not_analyzed"}
                       :startLocation {:type "geo_point"}
                       :endLocation {:type "geo_point"}})
 
@@ -120,7 +121,8 @@
 
 (defn create-user-mapping []
   (let [mapping-types {"user" {:properties {:nickname {:type "string" :store "yes"}
-                                               :userId {:type "string" :store "yes"}}}}]
+                                            :userId {:type "string" :store "yes"}
+                                            :fileType {:type "string" :index "not_analyzed"}}}}]
     (esi/update-mapping (:station-index-name @system-config) "user" :mapping mapping-types)))
 
 
