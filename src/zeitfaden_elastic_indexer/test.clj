@@ -96,10 +96,10 @@
 
 
 (defn create-station-index []
-  (esi/create (:station-index-name @system-config) :settings {"number_of_shards" 3}))
+  (esi/create (:station-index-name @system-config) :settings {"number_of_shards" 1}))
 
 (defn create-station-anonymous-index []
-  (esi/create (:station-anonymous-index-name @system-config) :settings {"number_of_shards" 3}))
+  (esi/create (:station-anonymous-index-name @system-config) :settings {"number_of_shards" 1}))
 
 (def station-mapping {:description {:type "string" :store "yes"}
                       :title {:type "string" :store "yes"}
