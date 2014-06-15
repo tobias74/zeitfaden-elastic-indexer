@@ -137,8 +137,11 @@
   (if (contains? @user-data-hash user-id)
     (get @user-data-hash user-id)
     (do
-      (println "inserting new user-id into our hash-map")
-      (let [user-data (first (read-users-from-server [user-id]))]
+      (println (str "inserting new user-id into our hash-map" user-id))
+      
+      (let [url (str "http://" (:zf-api-url @system-config) (str  "/user/getById/userId/" user-id "/loadBalancedUrls/0"))
+            user-data (json/read-str (:body (http-client/get url {:decompress-body false})))]
+
         (let [new-user-data-hash (assoc @user-data-hash user-id user-data)]
           (reset! user-data-hash new-user-data-hash)
           (get @user-data-hash user-id))))))
