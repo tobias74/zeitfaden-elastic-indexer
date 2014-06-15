@@ -25,7 +25,7 @@
 (def system-config (atom nil))
 (def worker-name (atom nil))
 (def worker-shard (atom nil))
-
+(def user-data-hash (atom {}))
 
 
 
@@ -127,6 +127,23 @@
 
 
 
+(defn read-users-from-server [user-ids]
+  (let [url (str "http://" (:zf-api-url @system-config) "/user/getByIds/loadBalancedUrls/0/")
+        user-data (:body (http-client/post url {:decompress-body false :form-params {:userIds (json/write-str user-ids)}}))]
+    (json/read-str user-data)))
+
+
+(defn get-user-data [user-id]
+  (if (contains? @user-data-hash user-id)
+    (get @user-data-hash user-id)
+    (do
+      (println "inserting new user-id into our hash-map")
+      (let [user-data (first (read-users-from-server [user-id]))]
+        (let [new-user-data-hash (assoc @user-data-hash user-id user-data)]
+          (reset! user-data-hash new-user-data-hash)
+          (get @user-data-hash user-id))))))
+
+
 
 (defn enrich-station-data [station-data]
   (let [intermediate-data 
@@ -137,9 +154,19 @@
           :endLocation {:lat (read-string (station-data "endLatitude")) :lon (read-string (station-data "endLongitude"))})]
     
     (if (or  (clojure.string/blank? (station-data "userId")) (false? (station-data "userId")) (= "false" (station-data "userId")) )
-      (assoc intermediate-data :_index (:station-anonymous-index-name @system-config) :_type "station")   
-      (assoc intermediate-data :_index (:station-index-name @system-config) :_type "station" :_parent (station-data "userId")))
-    ))
+      (assoc intermediate-data :_index (:station-anonymous-index-name @system-config) :_type "station")
+      (do
+        (let [user-data (get-user-data (station-data "userId"))]
+          (assoc intermediate-data
+            :_index (:station-index-name @system-config)
+            :_type "station"
+            :_parent (station-data "userId")
+            :_userSmallFrontImageUrl (:smallFrontImageUrl user-data)
+            :_userMediumFrontImageUrl (:mediumFrontImageUrl user-data)
+            :_userBigFrontImageUrl (:bigFrontImageUrl user-data)
+            :_userFileType (:fileType user-data)))))))
+
+
 
 (defn enrich-user-data [user-data]
   (let [intermediate-data 
@@ -154,11 +181,6 @@
         station-data (:body (http-client/post url {:decompress-body false :form-params {:stationIds (json/write-str station-ids)}}))]
     (json/read-str station-data)))
 
-
-(defn read-users-from-server [user-ids]
-  (let [url (str "http://" (:zf-api-url @system-config) "/user/getByIds/loadBalancedUrls/0/")
-        user-data (:body (http-client/post url {:decompress-body false :form-params {:userIds (json/write-str user-ids)}}))]
-    (json/read-str user-data)))
 
 
 
