@@ -110,7 +110,11 @@
 
 (defn create-station-mapping []
   (let [mapping-types {"station" {:_parent {:type "user"}
-                                  :properties station-mapping}}]
+                                  :properties (assoc station-mapping
+                                                :userSmallFrontImageUrl {:type "string" :index "not_analyzed"}
+                                                :userMediumFrontImageUrl {:type "string" :index "not_analyzed"}
+                                                :userBigFrontImageUrl {:type "string" :index "not_analyzed"}
+                                                :userFileType {:type "string" :index "not_analyzed"})}}]
     (esi/update-mapping (:station-index-name @system-config) "station" :mapping mapping-types)))
 
 
