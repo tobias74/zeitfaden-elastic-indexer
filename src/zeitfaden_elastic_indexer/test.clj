@@ -164,10 +164,10 @@
             :_index (:station-index-name @system-config)
             :_type "station"
             :_parent (station-data "userId")
-            :_userSmallFrontImageUrl (:smallFrontImageUrl user-data)
-            :_userMediumFrontImageUrl (:mediumFrontImageUrl user-data)
-            :_userBigFrontImageUrl (:bigFrontImageUrl user-data)
-            :_userFileType (:fileType user-data)))))))
+            :userSmallFrontImageUrl (user-data "smallFrontImageUrl")
+            :userMediumFrontImageUrl (user-data "mediumFrontImageUrl")
+            :userBigFrontImageUrl (user-data "bigFrontImageUrl")
+            :userFileType (user-data "fileType")))))))
 
 
 
